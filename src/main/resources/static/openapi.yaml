@@ -1,0 +1,358 @@
+openapi: 3.1.0
+info:
+  title: Holiday Explorer API
+  description: |-
+    Queries over the public holiday data published by date.nager.at.
+
+    The data and the upstream API originate from https://date.nager.at and are used here for a coding assignment; no ownership is claimed over either.
+  license:
+    name: "Upstream data: date.nager.at"
+    url: https://date.nager.at
+  version: 1.0.0
+servers:
+- url: /
+tags:
+- name: Holidays
+  description: Queries over the Nager.Date public holiday API
+paths:
+  /api/v1/holidays/weekday-counts:
+    get:
+      tags:
+      - Holidays
+      summary: "Public holidays not falling on a weekend, per country"
+      description: |-
+        For each country, counts the public holidays in the given year that fall Monday
+        to Friday. Sorted by count descending, ties broken by country code.
+      operationId: weekdayCounts
+      parameters:
+      - name: year
+        in: query
+        description: Calendar year
+        required: true
+        schema:
+          type: integer
+          format: int32
+        example: 2026
+      - name: countryCodes
+        in: query
+        description: Comma-separated country codes; duplicates are ignored
+        required: true
+        schema:
+          type: string
+        example: "NL,DE,US"
+      responses:
+        "200":
+          description: "One row per country, highest count first"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CountryHolidayCountResponse"
+        "400":
+          description: "Unsupported year, malformed country code, or too many countries"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                type: https://example.com/holiday-explorer/errors/invalid-request
+                title: Invalid request
+                status: 400
+                detail: Year 1800 is outside the supported range 1976-2076.
+                instance: /api/v1/holidays/weekday-counts
+        "404":
+          description: A well-formed country code the API publishes nothing for
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                type: https://example.com/holiday-explorer/errors/unknown-country
+                title: Unknown country
+                status: 404
+                detail: "Unknown country code(s): XX."
+                instance: /api/v1/holidays/weekday-counts
+        "502":
+          description: "The holiday API could not be reached, or kept failing after\
+            \ retries"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                type: https://example.com/holiday-explorer/errors/upstream-unavailable
+                title: Holiday API unavailable
+                status: 502
+                detail: The holiday API returned 503 SERVICE_UNAVAILABLE.
+                instance: /api/v1/holidays/weekday-counts
+        "500":
+          description: Unexpected internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                type: https://example.com/holiday-explorer/errors/internal-error
+                title: Internal error
+                status: 500
+                detail: The request could not be completed.
+                instance: /api/v1/holidays/weekday-counts
+  /api/v1/holidays/shared:
+    get:
+      tags:
+      - Holidays
+      summary: Dates celebrated in both countries
+      description: "The deduplicated list of dates that both countries celebrate in\
+        \ the given year, ascending, each with both countries' local names for it."
+      operationId: shared
+      parameters:
+      - name: year
+        in: query
+        description: Calendar year
+        required: true
+        schema:
+          type: integer
+          format: int32
+        example: 2026
+      - name: first
+        in: query
+        description: First country code
+        required: true
+        schema:
+          type: string
+          pattern: "[A-Za-z]{2}"
+        example: NL
+      - name: second
+        in: query
+        description: Second country code
+        required: true
+        schema:
+          type: string
+          pattern: "[A-Za-z]{2}"
+        example: DE
+      responses:
+        "200":
+          description: "The shared dates, earliest first"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SharedHolidayResponse"
+        "400":
+          description: "Unsupported year, malformed country code, or the same country\
+            \ twice"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                type: https://example.com/holiday-explorer/errors/invalid-request
+                title: Invalid request
+                status: 400
+                detail: "The two country codes must differ, but both were 'NL'."
+                instance: /api/v1/holidays/shared
+        "404":
+          description: A well-formed country code the API publishes nothing for
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                type: https://example.com/holiday-explorer/errors/unknown-country
+                title: Unknown country
+                status: 404
+                detail: "Unknown country code(s): XX."
+                instance: /api/v1/holidays/shared
+        "502":
+          description: "The holiday API could not be reached, or kept failing after\
+            \ retries"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                type: https://example.com/holiday-explorer/errors/upstream-unavailable
+                title: Holiday API unavailable
+                status: 502
+                detail: The holiday API returned 503 SERVICE_UNAVAILABLE.
+                instance: /api/v1/holidays/shared
+        "500":
+          description: Unexpected internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                type: https://example.com/holiday-explorer/errors/internal-error
+                title: Internal error
+                status: 500
+                detail: The request could not be completed.
+                instance: /api/v1/holidays/shared
+  /api/v1/countries/{countryCode}/holidays/last:
+    get:
+      tags:
+      - Holidays
+      summary: The last celebrated holidays for a country
+      description: "Returns the most recently celebrated public holidays, most recent\
+        \ first. \"Celebrated\" means strictly before today."
+      operationId: lastCelebrated
+      parameters:
+      - name: countryCode
+        in: path
+        description: ISO 3166-1 alpha-2 country code
+        required: true
+        schema:
+          type: string
+          pattern: "[A-Za-z]{2}"
+        example: NL
+      - name: limit
+        in: query
+        description: "How many holidays to return, 1 to 100"
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 3
+        example: 3
+      responses:
+        "200":
+          description: "The holidays, most recent first"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LastHolidaysResponse"
+        "400":
+          description: "Malformed country code, or a limit outside 1 to 100"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                type: https://example.com/holiday-explorer/errors/invalid-request
+                title: Invalid request
+                status: 400
+                detail: "limit must be between 1 and 100, but was 0."
+                instance: /api/v1/countries/NL/holidays/last
+        "404":
+          description: A well-formed country code the API publishes nothing for
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                type: https://example.com/holiday-explorer/errors/unknown-country
+                title: Unknown country
+                status: 404
+                detail: "Unknown country code(s): XX."
+                instance: /api/v1/countries/NL/holidays/last
+        "502":
+          description: "The holiday API could not be reached, or kept failing after\
+            \ retries"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                type: https://example.com/holiday-explorer/errors/upstream-unavailable
+                title: Holiday API unavailable
+                status: 502
+                detail: The holiday API returned 503 SERVICE_UNAVAILABLE.
+                instance: /api/v1/countries/NL/holidays/last
+        "500":
+          description: Unexpected internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                type: https://example.com/holiday-explorer/errors/internal-error
+                title: Internal error
+                status: 500
+                detail: The request could not be completed.
+                instance: /api/v1/countries/NL/holidays/last
+components:
+  schemas:
+    CountryHolidayCountResponse:
+      type: object
+      description: A country and its number of public holidays that do not fall on
+        a weekend
+      properties:
+        countryCode:
+          type: string
+          example: NL
+        countryName:
+          type: string
+          example: Netherlands
+        weekdayHolidayCount:
+          type: integer
+          format: int64
+          description: Public holidays falling Monday to Friday
+          example: 8
+    SharedHolidayResponse:
+      type: object
+      description: "A date celebrated in both countries, with each country's own name(s)\
+        \ for it"
+      properties:
+        date:
+          type: string
+          format: date
+          example: 2026-12-25
+        localNames:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+    HolidayResponse:
+      type: object
+      description: A single public holiday
+      properties:
+        date:
+          type: string
+          format: date
+          example: 2026-08-31
+        localName:
+          type: string
+          description: Name in the country's own language
+          example: Tweede Kerstdag
+        name:
+          type: string
+          description: English name
+          example: St. Stephen's Day
+    LastHolidaysResponse:
+      type: object
+      description: The most recently celebrated holidays for one country
+      properties:
+        countryCode:
+          type: string
+        asOf:
+          type: string
+          format: date
+        holidays:
+          type: array
+          items:
+            $ref: "#/components/schemas/HolidayResponse"
+    ApiError:
+      type: object
+      description: The body of every failure response
+      properties:
+        type:
+          type: string
+          format: uri
+          example: https://example.com/holiday-explorer/errors/unknown-country
+        title:
+          type: string
+          example: Unknown country
+        status:
+          type: integer
+          format: int32
+          example: 404
+        detail:
+          type: string
+          example: "Unknown country code(s): XX."
+        instance:
+          type: string
+          format: uri
+          example: /api/v1/countries/XX/holidays/last

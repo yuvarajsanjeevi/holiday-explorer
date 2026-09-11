@@ -1,0 +1,22 @@
+[
+  {
+    "countryCode": "DE",
+    "name": "Germany"
+  },
+  {
+    "countryCode": "FR",
+    "name": "France"
+  },
+  {
+    "countryCode": "GB",
+    "name": "United Kingdom"
+  },
+  {
+    "countryCode": "NL",
+    "name": "Netherlands"
+  },
+  {
+    "countryCode": "US",
+    "name": "United States"
+  }
+]

@@ -1,0 +1,71 @@
+spring:
+  application:
+    name: holiday-explorer
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2s
+      # This application stores nothing; Redis is used purely as a cache.
+      repositories:
+        enabled: false
+
+  # Starts the Redis service in docker-compose.yaml on `spring-boot:run` and stops it afterwards, so
+  # a fresh clone needs Docker but no setup. Boot picks up the mapped port itself, which is why that
+  # file does not pin one. Set false and point spring.data.redis.* at your own instance to opt out.
+  docker:
+    compose:
+      enabled: true
+      lifecycle-management: start-and-stop
+
+  # Applied to the auto-configured RestClient.Builder. Without these a stuck call on the far side
+  # would hold a request thread forever.
+  http:
+    clients:
+      connect-timeout: 2s
+      read-timeout: 5s
+
+  threads:
+    virtual:
+      enabled: true
+
+  # Error details come from ApiExceptionHandler, so the default error page must not leak a message
+  # of its own.
+  web:
+    error:
+      include-message: never
+
+holiday-explorer:
+  nager:
+    base-url: https://date.nager.at/api/v3
+    max-retries: 2
+    retry-delay: 200ms
+    retry-max-delay: 2s
+    max-lookback-years: 3
+    # Spring cron (second minute hour day month weekday): every 6 hours, on the hour.
+    country-refresh-cron: "0 0 */6 * * *"
+    year-window: 50
+
+server:
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,caches
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+logging:
+  level:
+    # DEBUG traces every query and every upstream call. Since the client method is cached, a
+    # "GET /PublicHolidays" line means a cache miss - which makes the log the cache hit rate.
+    com.example.holidays: INFO

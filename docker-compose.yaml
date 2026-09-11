@@ -1,0 +1,33 @@
+# Redis for local development, plus the application itself behind a compose profile.
+#
+#   ./mvnw spring-boot:run            starts only Redis (Spring Boot does it for you) and runs the
+#                                     application from your working copy - use this day to day
+#
+#   ./mvnw jib:dockerBuild && \
+#     docker compose --profile full up   runs the built image alongside Redis
+#
+# The app service is behind the "full" profile precisely so the first command does not try to start
+# it: Spring Boot's Docker Compose support activates no profiles, so it sees Redis only.
+services:
+  redis:
+    image: 'redis:8-alpine'
+    ports:
+      # No fixed host port: Docker assigns a free one and Spring Boot discovers it, so this cannot
+      # collide with a Redis already running on the machine.
+      - '6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    profiles: ['full']
+    image: 'holiday-explorer:latest'
+    ports:
+      - '8080:8080'
+    environment:
+      SPRING_DATA_REDIS_HOST: redis
+    depends_on:
+      redis:
+        condition: service_healthy
