@@ -11,7 +11,9 @@ import static org.mockito.BDDMockito.willThrow;
 import com.example.holidays.domain.CountryCode;
 import com.example.holidays.domain.CountryHolidayCount;
 import com.example.holidays.domain.Holiday;
+import com.example.holidays.domain.LastCelebratedHolidays;
 import com.example.holidays.domain.SharedHoliday;
+import com.example.holidays.domain.SharedHolidays;
 import com.example.holidays.exception.InvalidRequestException;
 import com.example.holidays.exception.UnknownCountryException;
 import com.example.holidays.exception.UpstreamRejectedException;
@@ -54,9 +56,10 @@ class HolidayControllerTest {
     @Test
     @DisplayName("returns the last celebrated holidays with the date the answer was computed for")
     void returnsLastCelebrated() {
-        given(service.lastCelebratedHolidays(eq(NL), eq(3), any())).willReturn(List.of(
-                publicHoliday(LocalDate.of(2026, 5, 25), "Tweede Pinksterdag", "Whit Monday"),
-                publicHoliday(LocalDate.of(2026, 5, 14), "Hemelvaartsdag", "Ascension Day")));
+        given(service.lastCelebratedHolidays(eq(NL), eq(3), any()))
+                .willReturn(new LastCelebratedHolidays(NL, "Netherlands", List.of(
+                        publicHoliday(LocalDate.of(2026, 5, 25), "Tweede Pinksterdag", "Whit Monday"),
+                        publicHoliday(LocalDate.of(2026, 5, 14), "Hemelvaartsdag", "Ascension Day"))));
 
         assertThat(mvc.get().uri("/api/v1/countries/NL/holidays/last"))
                 .hasStatusOk()
@@ -64,6 +67,7 @@ class HolidayControllerTest {
                 .bodyJson()
                 .satisfies(json -> {
                     assertThat(json).extractingPath("$.countryCode").isEqualTo("NL");
+                    assertThat(json).extractingPath("$.countryName").isEqualTo("Netherlands");
                     assertThat(json).extractingPath("$.asOf").isEqualTo(LocalDate.now().toString());
                     assertThat(json).extractingPath("$.holidays[0].localName").isEqualTo("Tweede Pinksterdag");
                     assertThat(json).extractingPath("$.holidays").asArray().hasSize(2);
@@ -73,7 +77,8 @@ class HolidayControllerTest {
     @Test
     @DisplayName("normalises a lower-case country code before delegating")
     void normalisesPathVariable() {
-        given(service.lastCelebratedHolidays(eq(NL), eq(3), any())).willReturn(List.of());
+        given(service.lastCelebratedHolidays(eq(NL), eq(3), any()))
+                .willReturn(new LastCelebratedHolidays(NL, "Netherlands", List.of()));
 
         assertThat(mvc.get().uri("/api/v1/countries/nl/holidays/last")).hasStatusOk();
     }
@@ -102,16 +107,24 @@ class HolidayControllerTest {
         Map<CountryCode, Set<String>> names = new LinkedHashMap<>();
         names.put(NL, new LinkedHashSet<>(List.of("Eerste Kerstdag")));
         names.put(DE, new LinkedHashSet<>(List.of("Erster Weihnachtstag")));
+        Map<CountryCode, String> countries = new LinkedHashMap<>();
+        countries.put(NL, "Netherlands");
+        countries.put(DE, "Germany");
         given(service.sharedHolidays(eq(2026), eq(NL), eq(DE), any()))
-                .willReturn(List.of(new SharedHoliday(LocalDate.of(2026, 12, 25), names)));
+                .willReturn(new SharedHolidays(2026, countries,
+                        List.of(new SharedHoliday(LocalDate.of(2026, 12, 25), names))));
 
         assertThat(mvc.get().uri("/api/v1/holidays/shared?year=2026&first=NL&second=DE"))
                 .hasStatusOk()
                 .bodyJson()
                 .satisfies(json -> {
-                    assertThat(json).extractingPath("$[0].date").isEqualTo("2026-12-25");
-                    assertThat(json).extractingPath("$[0].localNames.NL[0]").isEqualTo("Eerste Kerstdag");
-                    assertThat(json).extractingPath("$[0].localNames.DE[0]").isEqualTo("Erster Weihnachtstag");
+                    assertThat(json).extractingPath("$.year").isEqualTo(2026);
+                    assertThat(json).extractingPath("$.countries[0].countryCode").isEqualTo("NL");
+                    assertThat(json).extractingPath("$.countries[0].countryName").isEqualTo("Netherlands");
+                    assertThat(json).extractingPath("$.countries[1].countryName").isEqualTo("Germany");
+                    assertThat(json).extractingPath("$.commonHolidays[0].date").isEqualTo("2026-12-25");
+                    assertThat(json).extractingPath("$.commonHolidays[0].localNames.NL[0]").isEqualTo("Eerste Kerstdag");
+                    assertThat(json).extractingPath("$.commonHolidays[0].localNames.DE[0]").isEqualTo("Erster Weihnachtstag");
                 });
     }
 

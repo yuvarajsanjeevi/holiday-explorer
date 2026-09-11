@@ -6,7 +6,9 @@ import com.example.holidays.constant.ApplicationConstants;
 import com.example.holidays.domain.CountryCode;
 import com.example.holidays.domain.CountryHolidayCount;
 import com.example.holidays.domain.Holiday;
+import com.example.holidays.domain.LastCelebratedHolidays;
 import com.example.holidays.domain.SharedHoliday;
+import com.example.holidays.domain.SharedHolidays;
 import com.example.holidays.domain.WeekendCalendar;
 import com.example.holidays.exception.InvalidRequestException;
 import com.example.holidays.exception.UpstreamUnavailableException;
@@ -58,7 +60,7 @@ public class HolidayServiceImpl implements HolidayService {
      * @throws InvalidRequestException if {@code limit} is not positive
      */
     @Override
-    public List<Holiday> lastCelebratedHolidays(
+    public LastCelebratedHolidays lastCelebratedHolidays(
             CountryCode countryCode, int limit, LocalDate today) {
         if (limit < 1 || limit > ApplicationConstants.MAX_HOLIDAY_LIMIT) {
             throw new InvalidRequestException("limit must be between 1 and %d, but was %d."
@@ -83,14 +85,19 @@ public class HolidayServiceImpl implements HolidayService {
                     if (celebrated.size() == limit) {
                         log.debug("Found all {} for {} within {} year(s)",
                                 limit, countryCode, today.getYear() - year + 1);
-                        return celebrated;
+                        return named(countryCode, celebrated);
                     }
                 }
             }
         }
         log.debug("Only {} of the {} requested holidays exist for {} in the last {} years",
                 celebrated.size(), limit, countryCode, properties.maxLookbackYears());
-        return celebrated;
+        return named(countryCode, celebrated);
+    }
+
+    private LastCelebratedHolidays named(CountryCode countryCode, List<Holiday> holidays) {
+        return new LastCelebratedHolidays(
+                countryCode, countryService.getAll().get(countryCode.value()), holidays);
     }
 
     /**
@@ -130,7 +137,7 @@ public class HolidayServiceImpl implements HolidayService {
 
     /** Grouping by date and intersecting is O(n + m) against a nested loop's O(n * m), and dedupes on the way. */
     @Override
-    public List<SharedHoliday> sharedHolidays(
+    public SharedHolidays sharedHolidays(
             int year, CountryCode first, CountryCode second, LocalDate today) {
         if (first.equals(second)) {
             throw new InvalidRequestException(
@@ -139,6 +146,7 @@ public class HolidayServiceImpl implements HolidayService {
         validateYear(year, today);
         countryService.validateCountryCodes(List.of(first, second));
         log.debug("Holidays shared by {} and {} in {}", first, second, year);
+        Map<String, String> countryNames = countryService.getAll();
 
         Map<CountryCode, List<Holiday>> holidaysByCountry = fetchConcurrently(year, List.of(first, second));
         Map<LocalDate, Set<String>> firstByDate = localNamesByDate(holidaysByCountry.get(first));
@@ -157,7 +165,11 @@ public class HolidayServiceImpl implements HolidayService {
                 .toList();
         log.debug("{} and {} share {} of {}/{} dates in {}",
                 first, second, shared.size(), firstByDate.size(), secondByDate.size(), year);
-        return shared;
+
+        Map<CountryCode, String> named = LinkedHashMap.newLinkedHashMap(2);
+        named.put(first, countryNames.get(first.value()));
+        named.put(second, countryNames.get(second.value()));
+        return new SharedHolidays(year, named, shared);
     }
 
     /** Two entries for the same day and name are one holiday, listed once per region. */

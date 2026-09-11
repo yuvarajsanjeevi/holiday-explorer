@@ -3,11 +3,15 @@ package com.example.holidays.web.mapper;
 import com.example.holidays.domain.CountryCode;
 import com.example.holidays.domain.CountryHolidayCount;
 import com.example.holidays.domain.Holiday;
+import com.example.holidays.domain.LastCelebratedHolidays;
 import com.example.holidays.domain.SharedHoliday;
+import com.example.holidays.domain.SharedHolidays;
 import com.example.holidays.web.dto.CountryHolidayCountResponse;
+import com.example.holidays.web.dto.CountryResponse;
 import com.example.holidays.web.dto.HolidayResponse;
 import com.example.holidays.web.dto.LastHolidaysResponse;
 import com.example.holidays.web.dto.SharedHolidayResponse;
+import com.example.holidays.web.dto.SharedHolidaysResponse;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -25,9 +29,9 @@ public class HolidayMapper {
     }
 
     /** {@code asOf} goes back to the caller because "the last three holidays" means nothing without a reference date. */
-    public LastHolidaysResponse toLastHolidaysResponse(
-            CountryCode countryCode, LocalDate asOf, Collection<Holiday> holidays) {
-        return new LastHolidaysResponse(countryCode.value(), asOf, toHolidayResponses(holidays));
+    public LastHolidaysResponse toLastHolidaysResponse(LastCelebratedHolidays celebrated, LocalDate asOf) {
+        return new LastHolidaysResponse(celebrated.countryCode().value(), celebrated.countryName(),
+                asOf, toHolidayResponses(celebrated.holidays()));
     }
 
     public List<HolidayResponse> toHolidayResponses(Collection<Holiday> holidays) {
@@ -57,5 +61,13 @@ public class HolidayMapper {
 
     public List<SharedHolidayResponse> toSharedResponses(Collection<SharedHoliday> shared) {
         return shared.stream().map(this::toResponse).toList();
+    }
+
+    public SharedHolidaysResponse toSharedHolidaysResponse(SharedHolidays shared) {
+        List<CountryResponse> countries = shared.countryNames().entrySet().stream()
+                .map(entry -> new CountryResponse(entry.getKey().value(), entry.getValue()))
+                .toList();
+        return new SharedHolidaysResponse(
+                shared.year(), countries, toSharedResponses(shared.commonHolidays()));
     }
 }

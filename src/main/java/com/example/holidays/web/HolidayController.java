@@ -2,11 +2,10 @@ package com.example.holidays.web;
 
 import com.example.holidays.constant.ApplicationConstants;
 import com.example.holidays.domain.CountryCode;
-import com.example.holidays.domain.Holiday;
 import com.example.holidays.service.HolidayService;
 import com.example.holidays.web.dto.CountryHolidayCountResponse;
 import com.example.holidays.web.dto.LastHolidaysResponse;
-import com.example.holidays.web.dto.SharedHolidayResponse;
+import com.example.holidays.web.dto.SharedHolidaysResponse;
 import com.example.holidays.web.mapper.HolidayMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -80,10 +79,9 @@ public class HolidayController {
             @Parameter(description = "How many holidays to return, 1 to 100", example = "3")
             @RequestParam(defaultValue = "" + ApplicationConstants.DEFAULT_HOLIDAY_LIMIT) int limit) {
 
-        CountryCode code = CountryCode.of(countryCode);
         LocalDate today = LocalDate.now();
-        List<Holiday> holidays = holidayService.lastCelebratedHolidays(code, limit, today);
-        return mapper.toLastHolidaysResponse(code, today, holidays);
+        return mapper.toLastHolidaysResponse(
+                holidayService.lastCelebratedHolidays(CountryCode.of(countryCode), limit, today), today);
     }
 
     @ApiResponse(responseCode = "200", description = "One row per country, highest count first")
@@ -150,7 +148,7 @@ public class HolidayController {
                     The deduplicated list of dates that both countries celebrate in the given year, \
                     ascending, each with both countries' local names for it.""")
     @GetMapping("/holidays/shared")
-    public List<SharedHolidayResponse> shared(
+    public SharedHolidaysResponse shared(
 
             @Parameter(description = "Calendar year", example = "2026") @RequestParam int year,
 
@@ -162,7 +160,7 @@ public class HolidayController {
                     schema = @Schema(pattern = ApplicationConstants.COUNTRY_CODE_PATTERN))
             @RequestParam String second) {
 
-        return mapper.toSharedResponses(holidayService.sharedHolidays(
+        return mapper.toSharedHolidaysResponse(holidayService.sharedHolidays(
                 year, CountryCode.of(first), CountryCode.of(second), LocalDate.now()));
     }
 }

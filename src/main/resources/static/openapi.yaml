@@ -137,9 +137,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/SharedHolidayResponse"
+                $ref: "#/components/schemas/SharedHolidaysResponse"
         "400":
           description: "Unsupported year, malformed country code, or the same country\
             \ twice"
@@ -290,6 +288,16 @@ components:
           format: int64
           description: Public holidays falling Monday to Friday
           example: 8
+    CountryResponse:
+      type: object
+      description: A country code and the English name it resolves to
+      properties:
+        countryCode:
+          type: string
+          example: NL
+        countryName:
+          type: string
+          example: Netherlands
     SharedHolidayResponse:
       type: object
       description: "A date celebrated in both countries, with each country's own name(s)\
@@ -305,6 +313,22 @@ components:
             type: array
             items:
               type: string
+    SharedHolidaysResponse:
+      type: object
+      description: The dates two countries both celebrate in a year
+      properties:
+        year:
+          type: integer
+          format: int32
+          example: 2026
+        countries:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountryResponse"
+        commonHolidays:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharedHolidayResponse"
     HolidayResponse:
       type: object
       description: A single public holiday
@@ -327,9 +351,14 @@ components:
       properties:
         countryCode:
           type: string
+          example: NL
+        countryName:
+          type: string
+          example: Netherlands
         asOf:
           type: string
           format: date
+          example: 2026-09-11
         holidays:
           type: array
           items:

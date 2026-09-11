@@ -2,8 +2,8 @@ package com.example.holidays.service;
 
 import com.example.holidays.domain.CountryCode;
 import com.example.holidays.domain.CountryHolidayCount;
-import com.example.holidays.domain.Holiday;
-import com.example.holidays.domain.SharedHoliday;
+import com.example.holidays.domain.LastCelebratedHolidays;
+import com.example.holidays.domain.SharedHolidays;
 import com.example.holidays.exception.InvalidRequestException;
 import com.example.holidays.exception.UnknownCountryException;
 import com.example.holidays.exception.UpstreamUnavailableException;
@@ -22,7 +22,7 @@ public interface HolidayService {
      * @throws UnknownCountryException      if the country is not published upstream
      * @throws UpstreamUnavailableException if the API cannot be reached
      */
-    List<Holiday> lastCelebratedHolidays(
+    LastCelebratedHolidays lastCelebratedHolidays(
             CountryCode countryCode, int limit, LocalDate today);
 
     /**
@@ -44,6 +44,6 @@ public interface HolidayService {
      * @throws UnknownCountryException      if either country is not published upstream
      * @throws UpstreamUnavailableException if either country cannot be retrieved
      */
-    List<SharedHoliday> sharedHolidays(
+    SharedHolidays sharedHolidays(
             int year, CountryCode first, CountryCode second, LocalDate today);
 }

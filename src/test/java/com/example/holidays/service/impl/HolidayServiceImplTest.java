@@ -59,7 +59,7 @@ class HolidayServiceImplTest {
             StubNagerDateClient client = new StubNagerDateClient()
                     .withHolidays(2026, "NL", "01-01", "04-03", "04-06", "04-27", "05-14", "12-25");
 
-            List<Holiday> result = serviceWith(client).lastCelebratedHolidays(NL, 3, TODAY);
+            List<Holiday> result = serviceWith(client).lastCelebratedHolidays(NL, 3, TODAY).holidays();
 
             assertThat(result).extracting(Holiday::date).containsExactly(
                     LocalDate.of(2026, 5, 14), LocalDate.of(2026, 4, 27), LocalDate.of(2026, 4, 6));
@@ -74,7 +74,7 @@ class HolidayServiceImplTest {
                     .withRegionalHolidays(2026, "CH", "05-15|Maria Himmelfahrt");
 
             List<Holiday> result = serviceWith(client)
-                    .lastCelebratedHolidays(CountryCode.of("CH"), 2, TODAY);
+                    .lastCelebratedHolidays(CountryCode.of("CH"), 2, TODAY).holidays();
 
             assertThat(result).extracting(Holiday::localName)
                     .containsExactly("Maria Himmelfahrt", "Bundesfeier");
@@ -86,7 +86,7 @@ class HolidayServiceImplTest {
             StubNagerDateClient client = new StubNagerDateClient()
                     .withHolidays(2026, "NL", "04-27", "05-14", "06-01");
 
-            List<Holiday> result = serviceWith(client).lastCelebratedHolidays(NL, 3, TODAY);
+            List<Holiday> result = serviceWith(client).lastCelebratedHolidays(NL, 3, TODAY).holidays();
 
             assertThat(result).extracting(Holiday::date)
                     .doesNotContain(LocalDate.of(2026, 6, 1))
@@ -100,7 +100,7 @@ class HolidayServiceImplTest {
                     .withHolidays(2026, "NL", "01-01")
                     .withHolidays(2025, "NL", "12-25", "12-26");
 
-            List<Holiday> result = serviceWith(client).lastCelebratedHolidays(NL, 3, LocalDate.parse("2026-01-02"));
+            List<Holiday> result = serviceWith(client).lastCelebratedHolidays(NL, 3, LocalDate.parse("2026-01-02")).holidays();
 
             assertThat(result).extracting(Holiday::date).containsExactly(
                     LocalDate.of(2026, 1, 1), LocalDate.of(2025, 12, 26), LocalDate.of(2025, 12, 25));
@@ -127,7 +127,7 @@ class HolidayServiceImplTest {
                     .withCountry("NL", "Netherlands")
                     .withHolidays(2023, "NL", "12-25");
 
-            List<Holiday> result = serviceWith(client).lastCelebratedHolidays(NL, 3, TODAY);
+            List<Holiday> result = serviceWith(client).lastCelebratedHolidays(NL, 3, TODAY).holidays();
 
             assertThat(result).isEmpty();
             assertThat(client.holidayCalls()).isEqualTo(3); // 2026, 2025, 2024 - then stop
@@ -138,7 +138,7 @@ class HolidayServiceImplTest {
         void returnsFewerWhenNotEnoughExist() {
             StubNagerDateClient client = new StubNagerDateClient().withHolidays(2026, "NL", "01-01");
 
-            assertThat(serviceWith(client).lastCelebratedHolidays(NL, 3, TODAY)).hasSize(1);
+            assertThat(serviceWith(client).lastCelebratedHolidays(NL, 3, TODAY).holidays()).hasSize(1);
         }
 
         @Test
@@ -170,7 +170,7 @@ class HolidayServiceImplTest {
             StubNagerDateClient client = new StubNagerDateClient().withHolidays(2026, "NL", "01-01");
 
             assertThat(serviceWith(client).lastCelebratedHolidays(
-                    NL, ApplicationConstants.MAX_HOLIDAY_LIMIT, TODAY)).hasSize(1);
+                    NL, ApplicationConstants.MAX_HOLIDAY_LIMIT, TODAY).holidays()).hasSize(1);
         }
 
         @Test
@@ -373,7 +373,7 @@ class HolidayServiceImplTest {
                     .withHolidays(2026, "DE", "12-25|Erster Weihnachtstag", "10-03|Tag der Deutschen Einheit",
                             "01-01|Neujahr");
 
-            List<SharedHoliday> result = serviceWith(client).sharedHolidays(2026, NL, DE, TODAY);
+            List<SharedHoliday> result = serviceWith(client).sharedHolidays(2026, NL, DE, TODAY).commonHolidays();
 
             assertThat(result).extracting(SharedHoliday::date)
                     .containsExactly(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 25));
@@ -389,7 +389,7 @@ class HolidayServiceImplTest {
                     .withHolidays(2026, "NL", "01-01|Nieuwjaarsdag", "04-27|Koningsdag", "05-05|Bevrijdingsdag")
                     .withHolidays(2026, "DE", "01-01|Neujahr");
 
-            List<SharedHoliday> result = serviceWith(client).sharedHolidays(2026, NL, DE, TODAY);
+            List<SharedHoliday> result = serviceWith(client).sharedHolidays(2026, NL, DE, TODAY).commonHolidays();
 
             assertThat(result).singleElement()
                     .satisfies(shared -> assertThat(shared.localNames().keySet())
@@ -405,7 +405,7 @@ class HolidayServiceImplTest {
                     .withHolidays(2026, "DE", "01-01|Neujahr", "10-03|Tag der Deutschen Einheit",
                             "12-25|Erster Weihnachtstag");
 
-            List<SharedHoliday> result = serviceWith(client).sharedHolidays(2026, NL, DE, TODAY);
+            List<SharedHoliday> result = serviceWith(client).sharedHolidays(2026, NL, DE, TODAY).commonHolidays();
 
             assertThat(result).singleElement().satisfies(shared -> {
                 assertThat(shared.localNames().keySet()).containsExactly(NL, DE);
@@ -421,7 +421,7 @@ class HolidayServiceImplTest {
                     .withHolidays(2026, "NL", "05-05|Bevrijdingsdag", "05-05|Dodenherdenking")
                     .withHolidays(2026, "DE", "05-05|Maifeiertag");
 
-            List<SharedHoliday> result = serviceWith(client).sharedHolidays(2026, NL, DE, TODAY);
+            List<SharedHoliday> result = serviceWith(client).sharedHolidays(2026, NL, DE, TODAY).commonHolidays();
 
             assertThat(result).hasSize(1);
             assertThat(result.getFirst().localNames().get(NL))
@@ -436,7 +436,7 @@ class HolidayServiceImplTest {
                     .withHolidays(2026, "DE", "01-01|Neujahr");
 
             SharedHoliday shared =
-                    serviceWith(client).sharedHolidays(2026, NL, DE, TODAY).getFirst();
+                    serviceWith(client).sharedHolidays(2026, NL, DE, TODAY).commonHolidays().getFirst();
 
             assertThatThrownBy(() -> shared.localNames().put(NL, new LinkedHashSet<>()))
                     .isInstanceOf(UnsupportedOperationException.class);
@@ -452,7 +452,7 @@ class HolidayServiceImplTest {
                     .withHolidays(2026, "DE", "04-03|Karfreitag")
                     .withNonPublicHolidays(2026, "NL", "04-03|Goede Vrijdag");
 
-            List<SharedHoliday> result = serviceWith(client).sharedHolidays(2026, NL, DE, TODAY);
+            List<SharedHoliday> result = serviceWith(client).sharedHolidays(2026, NL, DE, TODAY).commonHolidays();
 
             assertThat(result).singleElement()
                     .satisfies(shared -> assertThat(shared.date()).isEqualTo(LocalDate.of(2026, 4, 3)));
@@ -465,7 +465,7 @@ class HolidayServiceImplTest {
                     .withRegionalHolidays(2026, "NL", "03-01|Regional NL")
                     .withRegionalHolidays(2026, "DE", "03-01|Regional DE");
 
-            List<SharedHoliday> result = serviceWith(client).sharedHolidays(2026, NL, DE, TODAY);
+            List<SharedHoliday> result = serviceWith(client).sharedHolidays(2026, NL, DE, TODAY).commonHolidays();
 
             assertThat(result).singleElement()
                     .satisfies(shared -> assertThat(shared.date()).isEqualTo(LocalDate.of(2026, 3, 1)));
@@ -478,7 +478,7 @@ class HolidayServiceImplTest {
                     .withHolidays(2026, "NL", "04-27")
                     .withHolidays(2026, "DE", "10-03");
 
-            assertThat(serviceWith(client).sharedHolidays(2026, NL, DE, TODAY)).isEmpty();
+            assertThat(serviceWith(client).sharedHolidays(2026, NL, DE, TODAY).commonHolidays()).isEmpty();
         }
 
         @Test

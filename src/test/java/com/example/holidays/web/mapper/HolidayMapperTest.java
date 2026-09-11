@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.example.holidays.domain.CountryCode;
 import com.example.holidays.domain.CountryHolidayCount;
 import com.example.holidays.domain.Holiday;
+import com.example.holidays.domain.LastCelebratedHolidays;
 import com.example.holidays.domain.SharedHoliday;
 import com.example.holidays.web.dto.LastHolidaysResponse;
 import com.example.holidays.web.dto.SharedHolidayResponse;
@@ -65,9 +66,11 @@ class HolidayMapperTest {
         LocalDate asOf = LocalDate.of(2026, 6, 1);
         List<Holiday> holidays = List.of(publicHoliday(LocalDate.of(2026, 5, 14), "Hemelvaartsdag", "Ascension Day"));
 
-        LastHolidaysResponse response = mapper.toLastHolidaysResponse(NL, asOf, holidays);
+        LastHolidaysResponse response = mapper.toLastHolidaysResponse(
+                new LastCelebratedHolidays(NL, "Netherlands", holidays), asOf);
 
         assertThat(response.countryCode()).isEqualTo("NL");
+        assertThat(response.countryName()).isEqualTo("Netherlands");
         assertThat(response.asOf()).isEqualTo(asOf);
         assertThat(response.holidays()).singleElement()
                 .extracting(com.example.holidays.web.dto.HolidayResponse::localName)

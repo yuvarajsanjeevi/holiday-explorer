@@ -152,7 +152,8 @@ curl 'http://localhost:8080/api/v1/countries/NL/holidays/last'
 ```json
 {
   "countryCode": "NL",
-  "asOf": "2026-09-09",
+  "countryName": "Netherlands",
+  "asOf": "2026-09-11",
   "holidays": [
     { "date": "2026-05-25", "localName": "Tweede Pinksterdag", "name": "Whit Monday" },
     { "date": "2026-05-24", "localName": "Eerste Pinksterdag", "name": "Pentecost" },
@@ -192,12 +193,21 @@ curl 'http://localhost:8080/api/v1/holidays/shared?year=2026&first=NL&second=DE'
 **Response:**
 
 ```json
-[
-  { "date": "2026-01-01", "localNames": { "NL": ["Nieuwjaarsdag"],    "DE": ["Neujahr"] } },
-  { "date": "2026-12-26", "localNames": { "NL": ["Tweede Kerstdag"],  "DE": ["Zweiter Weihnachtstag"] } }
-]
-
+{
+  "year": 2026,
+  "countries": [
+    { "countryCode": "NL", "countryName": "Netherlands" },
+    { "countryCode": "DE", "countryName": "Germany" }
+  ],
+  "commonHolidays": [
+    { "date": "2026-01-01", "localNames": { "NL": ["Nieuwjaarsdag"],   "DE": ["Neujahr"] } },
+    { "date": "2026-12-26", "localNames": { "NL": ["Tweede Kerstdag"], "DE": ["Zweiter Weihnachtstag"] } }
+  ]
+}
 ```
+
+The two codes are resolved to names once in `countries`, not repeated on every date - they are the
+same for the whole response.
 
 ---
 
