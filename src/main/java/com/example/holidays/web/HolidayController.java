@@ -107,8 +107,11 @@ public class HolidayController {
                               "detail": "The request could not be completed.", "instance": "/api/v1/holidays/weekday-counts"}""")))
     @Operation(summary = "Public holidays not falling on a weekend, per country",
             description = """
-                    For each country, counts the public holidays in the given year that fall Monday
-                    to Friday. Sorted by count descending, ties broken by country code.""")
+                    For each country, counts the public holidays in the given year that fall on one \
+                    of that country's working days. The weekend is not Saturday and Sunday \
+                    everywhere - Egypt and much of the Middle East rest Friday and Saturday, so \
+                    their working days are Sunday to Thursday. Sorted by count descending, ties \
+                    broken by country code.""")
     @GetMapping("/holidays/weekday-counts")
     public List<CountryHolidayCountResponse> weekdayCounts(
 

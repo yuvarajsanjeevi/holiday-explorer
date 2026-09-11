@@ -183,6 +183,9 @@ curl 'http://localhost:8080/api/v1/holidays/weekday-counts?year=2026&countryCode
 
 ```
 
+"Weekday" means a working day *in that country*, not Monday to Friday. Egypt rests Friday and
+Saturday, so its working days are Sunday to Thursday - see `WeekendCalendar`.
+
 ### 3. Shared Holidays Between Two Countries
 
 ```bash

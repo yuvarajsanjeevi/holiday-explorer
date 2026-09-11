@@ -20,9 +20,11 @@ paths:
       tags:
       - Holidays
       summary: "Public holidays not falling on a weekend, per country"
-      description: |-
-        For each country, counts the public holidays in the given year that fall Monday
-        to Friday. Sorted by count descending, ties broken by country code.
+      description: "For each country, counts the public holidays in the given year\
+        \ that fall on one of that country's working days. The weekend is not Saturday\
+        \ and Sunday everywhere - Egypt and much of the Middle East rest Friday and\
+        \ Saturday, so their working days are Sunday to Thursday. Sorted by count\
+        \ descending, ties broken by country code."
       operationId: weekdayCounts
       parameters:
       - name: year
@@ -275,7 +277,7 @@ components:
     CountryHolidayCountResponse:
       type: object
       description: A country and its number of public holidays that do not fall on
-        a weekend
+        its own weekend
       properties:
         countryCode:
           type: string
@@ -286,7 +288,7 @@ components:
         weekdayHolidayCount:
           type: integer
           format: int64
-          description: Public holidays falling Monday to Friday
+          description: Public holidays falling on one of that country's working days
           example: 8
     CountryResponse:
       type: object
