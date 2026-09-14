@@ -45,7 +45,9 @@ The upstream API payload has several edge cases that required explicit handling 
 * **Definition of "Last Celebrated":** Holidays must occur strictly prior to "today". A holiday
   occurring on the current calendar day is not considered already celebrated.
 * **Timezone Basis:** "Today" is determined using the server's timezone. To avoid ambiguity near
-  midnight, the API includes an `asOf` date in the response.
+  midnight, the API includes an `asOf` date in the response. *Cost:* near midnight, a holiday that
+  is already over in, say, New Zealand is not counted yet. Using each country's own timezone would
+  be more correct but needs a country-to-timezone mapping.
 * **Country-Specific Weekends:** Weekend days vary globally (e.g., Egypt rests Friday and Saturday).
   Non-standard weekend schedules are handled in `WeekendCalendar`, defaulting to Saturday/Sunday for
   all other countries.
@@ -57,32 +59,31 @@ The upstream API payload has several edge cases that required explicit handling 
     holiday counts.
 * **Regional Holidays:** To prevent federal countries from skewing counts (e.g., Switzerland listing
   cantonal variations of the same holiday), Query 2 counts only nationwide holidays. Duplicate
-  cantonal entries on the same date are deduplicated.
+  cantonal entries on the same date are deduplicated. *Cost:* it undercounts the days some regions
+  actually have off.
 * **Input Validation & Failures:**
   * Duplicate or mixed-case country inputs (like `NL,nl,NL`) are normalized and deduplicated before
     making upstream network calls.
-  * If one country in a multi-country query fails, the entire request returns an error rather than
-    partial results.
+  * If the upstream call for one country fails, the entire request returns a `502` rather than
+    partial results. A ranking with a country silently missing is quietly wrong, so I chose a clear
+    failure. *Cost:* one flaky country fails the whole request; a per-country status would be the
+    next step if clients preferred partial answers.
 * **Lookbacks & Bounds:** Query 1 scans a maximum of 3 years backwards to avoid unbounded historical
   lookups for countries with few holidays. Valid year ranges are derived dynamically from the system
-  clock to prevent hardcoded year boundaries from expiring over time.
+  clock to prevent hardcoded year boundaries from expiring over time. *Cost:* a country with very
+  few holidays can return fewer than the requested limit.
 
 ## Trade-offs & What I'd Change
 
-Every decision above cost something. These are the ones I'd expect to be asked about:
+The decisions above note their own costs. These are the other choices a reviewer is likely to
+question:
 
 * **Redis rather than an in-process cache.** It is shared across instances and survives restarts,
   which matters because the upstream is a free API I don't want to hammer. The cost is one more
-  moving part. A cache error handler stops Redis from being a hard dependency: if it is
-  unreachable, requests fall through to the upstream API, so an outage costs latency and upstream
-  load rather than availability.
+  moving part to run; see *Redis Outages* under Caching Strategy for what happens when it is down.
 * **One 24-hour TTL for everything.** Simple and good enough. Past years never change and could be
   cached far longer, while the current year occasionally gets corrected upstream and wants a
   shorter TTL. I kept one value rather than two cache configurations.
-* **All-or-nothing for multi-country requests.** If one country fails, the whole request returns a
-  `502` rather than partial results. Partial data would be more available, but a ranking with a
-  country silently missing is quietly wrong, so I chose a clear failure. A per-country status
-  would be the next step if clients preferred partial answers.
 * **Virtual threads and a blocking `RestClient` instead of `WebClient`.** Same concurrency benefit
   for an I/O-bound fan-out, with plain code and normal stack traces. Requests are capped at 250
   countries, but on a cold cache that is still up to 250 concurrent calls to a free API, so I'd
@@ -90,17 +91,6 @@ Every decision above cost something. These are the ones I'd expect to be asked a
 * **Two retries with exponential backoff, on `5xx` and I/O errors only.** A `4xx` won't succeed the
   second time, so it is never retried. There is no jitter; fine at this scale, but it would matter
   with many instances retrying at once.
-* **Server timezone for "today".** Deterministic, and returned as `asOf` so the answer is never
-  ambiguous. The cost is that near midnight a holiday already over in, say, New Zealand is not
-  counted yet. Using each country's own timezone would be more correct but needs a
-  country-to-timezone mapping.
-* **Three-year lookback cap for query 1.** Keeps latency and upstream calls bounded. A country with
-  very few holidays can return fewer than the requested limit.
-* **Nationwide holidays only in query 2.** Stops federal countries like Switzerland being inflated
-  by cantonal variants, at the cost of undercounting days some regions actually have off.
-* **A stale country list over no country list.** A failed background refresh keeps serving the
-  cached list: availability over freshness, which is the right call for data that almost never
-  changes.
 
 ---
 
@@ -349,7 +339,7 @@ health/        HolidayApiHealthIndicator               — Health Status Integra
 * **Country Metadata Snapshot:** The global country list is warmed at application startup and
   refreshed every 6 hours via a background cron schedule using `@CachePut`. If the upstream provider
   goes down during a background refresh, the existing cached list remains active to prevent service
-  disruptions.
+  disruptions: availability over freshness, the right call for data that almost never changes.
 * **Redis Outages:** A cache error handler logs Redis failures and lets the call proceed to the
   upstream API, so losing Redis degrades latency and upstream load, not availability.
 * **Serialization Safety:** Jackson serialization uses explicit class bindings rather than default
