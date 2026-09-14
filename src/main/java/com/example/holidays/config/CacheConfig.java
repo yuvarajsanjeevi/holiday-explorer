@@ -6,7 +6,9 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
@@ -29,7 +31,7 @@ import tools.jackson.databind.type.TypeFactory;
  */
 @EnableCaching
 @Configuration
-public class CacheConfig {
+public class CacheConfig implements CachingConfigurer {
 
     private static final Logger log = LoggerFactory.getLogger(CacheConfig.class);
 
@@ -39,6 +41,11 @@ public class CacheConfig {
 
     private static final JavaType COUNTRY_MAP =
             TYPES.constructMapType(Map.class, String.class, String.class);
+
+    @Override
+    public CacheErrorHandler errorHandler() {
+        return new LoggingCacheErrorHandler();
+    }
 
     @Bean
     @ConditionalOnMissingBean(CacheManager.class)

@@ -67,6 +67,41 @@ The upstream API payload has several edge cases that required explicit handling 
   lookups for countries with few holidays. Valid year ranges are derived dynamically from the system
   clock to prevent hardcoded year boundaries from expiring over time.
 
+## Trade-offs & What I'd Change
+
+Every decision above cost something. These are the ones I'd expect to be asked about:
+
+* **Redis rather than an in-process cache.** It is shared across instances and survives restarts,
+  which matters because the upstream is a free API I don't want to hammer. The cost is one more
+  moving part. A cache error handler stops Redis from being a hard dependency: if it is
+  unreachable, requests fall through to the upstream API, so an outage costs latency and upstream
+  load rather than availability.
+* **One 24-hour TTL for everything.** Simple and good enough. Past years never change and could be
+  cached far longer, while the current year occasionally gets corrected upstream and wants a
+  shorter TTL. I kept one value rather than two cache configurations.
+* **All-or-nothing for multi-country requests.** If one country fails, the whole request returns a
+  `502` rather than partial results. Partial data would be more available, but a ranking with a
+  country silently missing is quietly wrong, so I chose a clear failure. A per-country status
+  would be the next step if clients preferred partial answers.
+* **Virtual threads and a blocking `RestClient` instead of `WebClient`.** Same concurrency benefit
+  for an I/O-bound fan-out, with plain code and normal stack traces. Requests are capped at 250
+  countries, but on a cold cache that is still up to 250 concurrent calls to a free API, so I'd
+  add a semaphore to limit concurrency separately from request size.
+* **Two retries with exponential backoff, on `5xx` and I/O errors only.** A `4xx` won't succeed the
+  second time, so it is never retried. There is no jitter; fine at this scale, but it would matter
+  with many instances retrying at once.
+* **Server timezone for "today".** Deterministic, and returned as `asOf` so the answer is never
+  ambiguous. The cost is that near midnight a holiday already over in, say, New Zealand is not
+  counted yet. Using each country's own timezone would be more correct but needs a
+  country-to-timezone mapping.
+* **Three-year lookback cap for query 1.** Keeps latency and upstream calls bounded. A country with
+  very few holidays can return fewer than the requested limit.
+* **Nationwide holidays only in query 2.** Stops federal countries like Switzerland being inflated
+  by cantonal variants, at the cost of undercounting days some regions actually have off.
+* **A stale country list over no country list.** A failed background refresh keeps serving the
+  cached list: availability over freshness, which is the right call for data that almost never
+  changes.
+
 ---
 
 ## Getting Started
@@ -128,7 +163,7 @@ Execute the full test suite:
 
 ```
 
-The suite includes 153 tests covering unit logic, web layers, and integration workflows. JaCoCo
+The suite includes 157 tests covering unit logic, web layers, and integration workflows. JaCoCo
 generates a code coverage report at `target/site/jacoco/index.html`.
 
 Integration tests requiring a live Redis instance will automatically skip if Docker is not available
@@ -315,5 +350,7 @@ health/        HolidayApiHealthIndicator               — Health Status Integra
   refreshed every 6 hours via a background cron schedule using `@CachePut`. If the upstream provider
   goes down during a background refresh, the existing cached list remains active to prevent service
   disruptions.
+* **Redis Outages:** A cache error handler logs Redis failures and lets the call proceed to the
+  upstream API, so losing Redis degrades latency and upstream load, not availability.
 * **Serialization Safety:** Jackson serialization uses explicit class bindings rather than default
   typing to ensure type safety and prevent deserialization vulnerabilities.
